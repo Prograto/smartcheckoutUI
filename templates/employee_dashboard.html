@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Employee Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gradient-to-br from-[#f3f5ff] to-[#eef1fc] min-h-screen font-sans">
+  <!-- Header -->
+  <header class="bg-gradient-to-r from-[#4b2aad] to-[#5e60ce] text-white p-5 flex justify-between items-center shadow">
+    <div class="flex items-center space-x-4">
+      <img src="/static/logo.png" alt="Logo" class="h-10" />
+      <div>
+        <h1 class="text-xl font-bold">Smart Trolley</h1>
+        <p class="text-sm">Employee Checkout System</p>
+      </div>
+    </div>
+    <div class="flex items-center space-x-4">
+      <div class="text-right">
+        <p class="font-semibold">Welcome, {{ employee.name }}</p>
+        <p class="text-sm">Cashier • ID: {{ employee.userid }}</p>
+      </div>
+      <a href="{{ url_for('employee_logout') }}" class="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700">Logout</a>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto mt-10 p-4">
+    <h2 class="text-3xl font-bold text-center text-[#3c3c74] mb-2">Employee Checkout Dashboard</h2>
+    <p class="text-center text-sm text-gray-600 mb-6">Search trolleys, update products, and process payments</p>
+
+    <!-- Search Section -->
+    <div class="bg-white p-6 rounded-xl shadow-md">
+      <div class="flex gap-4 items-center mb-4">
+        <input id="trolleyInput" type="text" placeholder="Enter trolley number (e.g., T001)"
+               class="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"/>
+        <button onclick="searchTrolley()"
+                class="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2 rounded flex items-center">
+          🔍 Search
+        </button>
+      </div>
+
+      <div id="productSection" class="hidden">
+        <h3 class="text-lg font-semibold text-[#2b2e4a] mb-4">Trolley Products (<span id="productCount">0</span>)</h3>
+        <div id="productList" class="space-y-4"></div>
+
+        <!-- Totals -->
+        <div class="mt-6 border-t pt-4 space-y-2 text-sm">
+          <div class="flex justify-between">
+            <p>Total MRP:</p>
+            <p id="totalMrp" class="font-semibold">₹0.00</p>
+          </div>
+          <div class="flex justify-between text-green-600">
+            <p>Total Discount:</p>
+            <p id="totalDiscount" class="font-semibold">-₹0.00</p>
+          </div>
+          <div class="flex justify-between text-lg font-bold text-[#2b2e4a]">
+            <p>Final Amount:</p>
+            <p id="finalAmount">₹0.00</p>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="mt-6 flex gap-4 justify-end">
+          <button onclick="clearTrolley()"
+                  class="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded">🗑 Clear Trolley</button>
+          <button onclick="processPayment()"
+                  class="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded font-semibold">💳 Process Payment</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Scripts -->
+  <script>
+    function searchTrolley() {
+      const trolleyId = document.getElementById("trolleyInput").value.trim();
+      if (!trolleyId) return alert("Enter a trolley number");
+
+      fetch(`/api/trolley_data/${trolleyId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (!data.success) return alert("Trolley not found or empty");
+
+          document.getElementById("productSection").classList.remove("hidden");
+          document.getElementById("productCount").textContent = data.products.length;
+          document.getElementById("totalMrp").textContent = `₹${data.total_mrp}`;
+          document.getElementById("totalDiscount").textContent = `-₹${data.total_discount}`;
+          document.getElementById("finalAmount").textContent = `₹${data.final_amount}`;
+
+          const list = document.getElementById("productList");
+          list.innerHTML = "";
+
+          data.products.forEach(p => {
+            list.innerHTML += `
+              <div class="border rounded-lg p-4 shadow-sm flex justify-between items-center bg-gray-50">
+                <div>
+                  <p class="text-md font-semibold text-[#2b2e4a]">${p.name}</p>
+                  <p class="text-sm text-gray-500 mb-2">Barcode: ${p.barcode}</p>
+                  <div class="flex items-center gap-2">
+                    <button onclick="updateQuantity('${p.barcode}', -1)" class="bg-gray-200 px-2 rounded hover:bg-gray-300">-</button>
+                    <span id="qty-${p.barcode}" class="font-semibold">${p.quantity}</span>
+                    <button onclick="updateQuantity('${p.barcode}', 1)" class="bg-gray-200 px-2 rounded hover:bg-gray-300">+</button>
+                    <button onclick="deleteProduct('${p.barcode}')" class="ml-4 text-red-600 hover:text-red-800 text-sm">🗑 Delete</button>
+                  </div>
+                </div>
+                <div class="text-right">
+                  <p class="line-through text-sm text-gray-400">₹${p.mrp}</p>
+                  <p class="text-lg font-bold text-[#3c3c74]">₹${p.price}</p>
+                  <p class="text-xs text-green-500">Saved ₹${p.discount}</p>
+                </div>
+              </div>`;
+          });
+        });
+    }
+
+    function updateQuantity(barcode, change) {
+      fetch('/api/update_quantity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ barcode: barcode, change: change })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          // Reload product list and totals
+          searchTrolley();  // ✅ This fetches updated list and totals
+        } else {
+          alert(data.message || "Failed to update quantity");
+        }
+      });
+    }
+
+
+    function deleteProduct(barcode) {
+      if (!confirm("Are you sure you want to delete this product?")) return;
+
+      fetch('/api/delete_product', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ barcode: barcode })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          alert("Product deleted");
+          searchTrolley();
+        } else {
+          alert(data.message || "Failed to delete product");
+        }
+      });
+    }
+
+    function processPayment() {
+      const trolleyId = document.getElementById("trolleyInput").value.trim();
+      if (!trolleyId) return alert("No trolley selected");
+
+      fetch(`/api/process_payment/${trolleyId}`, { method: "POST" })
+        .then(res => res.json())
+        .then(data => {
+          alert(data.message);
+          location.reload();
+        });
+    }
+
+    function clearTrolley() {
+      const trolleyId = document.getElementById("trolleyInput").value.trim();
+      if (!trolleyId) return alert("No trolley selected");
+
+      if (!confirm("Are you sure you want to clear this trolley?")) return;
+
+      fetch(`/api/clear_trolley/${trolleyId}`, { method: "POST" })
+        .then(res => res.json())
+        .then(data => {
+          alert(data.message);
+          location.reload();
+        });
+    }
+  </script>
+</body>
+</html>

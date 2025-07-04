@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Trolley Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gradient-to-br from-[#f3f5ff] to-[#eef1fc] min-h-screen font-sans">
+  <header class="bg-[#2b2e4a] text-white p-4 flex justify-between items-center shadow-md">
+    <div class="flex items-center space-x-3">
+      <img src="/static/logo.png" class="h-10" alt="logo">
+      <div>
+        <h1 class="text-xl font-bold">Smart Trolley</h1>
+        <p class="text-sm text-gray-300">Advanced Scanner System</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-4">
+      <button class="bg-white text-[#2b2e4a] px-4 py-1 rounded hover:bg-gray-200 font-semibold">Customer</button>
+      <a href="/employee/login" class="bg-white text-[#2b2e4a] px-4 py-1 rounded hover:bg-gray-200 font-semibold">Employee</a>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto mt-8">
+    <div class="text-center">
+      <h2 class="text-3xl font-bold text-[#3c3c74] mb-1">Shopping Dashboard</h2>
+      <p class="text-sm text-gray-500">Your trolley is scanning products automatically</p>
+    </div>
+
+    <div class="mt-6 bg-gradient-to-r from-[#5e60ce] to-[#6930c3] rounded-xl text-white p-6 shadow-lg">
+      <div class="flex justify-between items-center mb-4">
+        <div>
+          <p class="text-sm">Trolley: <span class="font-semibold">{{ trolley_id }}</span></p>
+        </div>
+        <div class="text-3xl font-bold">₹{{ final_amount }}</div>
+      </div>
+      <div class="flex justify-between text-sm text-gray-200">
+        <div>
+          <p>Started: {{ products[0].added if products|length > 0 else "N/A" }}</p>
+        </div>
+        <div>
+          <p>Last Update: {{ products[-1].added if products|length > 0 else "N/A" }}</p>
+        </div>
+        <div>
+          <p>Total MRP: ₹{{ total_mrp }}</p>
+        </div>
+        <div class="text-green-300">
+          <p>You Save: ₹{{ total_discount }}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-6 bg-white p-4 rounded-xl shadow">
+    <h3 class="text-lg font-semibold text-[#2b2e4a] mb-4">Scanned Items ({{ products|length }})</h3>
+    
+    <div id="product-list">
+      <!-- Product card -->
+      {% for product in products %}
+      <div class="border rounded-lg p-4 mb-4 shadow-sm">
+        <div class="flex justify-between items-center">
+          <div>
+            <h4 class="text-md font-semibold text-[#2b2e4a]">{{ product.name }}</h4>
+            <p class="text-sm text-gray-500">Barcode: {{ product.barcode }} • Added: {{ product.added }}</p>
+            <div class="flex space-x-2 mt-2">
+              <span class="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded">Organic</span>
+              <span class="bg-pink-100 text-pink-700 text-xs px-2 py-1 rounded">Premium Quality</span>
+            </div>
+            <!-- Quantity Controls -->
+            <div class="flex items-center gap-2 mt-2">
+              <button onclick="updateQuantity('{{ product.barcode }}', -1)" class="bg-gray-200 px-2 rounded hover:bg-gray-300">-</button>
+              <span id="qty-{{ product.barcode }}" class="font-semibold">{{ product.quantity }}</span>
+              <button onclick="updateQuantity('{{ product.barcode }}', 1)" class="bg-gray-200 px-2 rounded hover:bg-gray-300">+</button>
+              <button onclick="deleteProduct('{{ product.barcode }}')" class="ml-4 text-red-600 hover:text-red-800 text-sm">🗑 Delete</button>
+            </div>
+          </div>
+          <div class="text-right">
+            <p class="text-sm text-gray-500 line-through">₹{{ product.mrp }}</p>
+            <p class="text-lg font-bold text-[#3c3c74]">₹{{ product.price }}</p>
+            <p class="text-xs text-green-500">(-₹{{ product.discount }})</p>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+
+    <div class="border-t pt-4">
+      <div class="flex justify-between text-sm">
+        <p>Total MRP:</p>
+        <p id="total-mrp" class="font-semibold">₹{{ total_mrp }}</p>
+      </div>
+      <div class="flex justify-between text-sm text-green-600">
+        <p>Total Discount:</p>
+        <p id="total-discount" class="font-semibold">-₹{{ total_discount }}</p>
+      </div>
+      <div class="flex justify-between text-lg font-bold text-[#2b2e4a] mt-2">
+        <p>Final Amount:</p>
+        <p id="final-amount">₹{{ final_amount }}</p>
+      </div>
+
+      <div class="flex justify-between text-sm text-green-600">
+        <p>Total Discount:</p>
+        <p class="font-semibold">-₹{{ total_discount }}</p>
+      </div>
+    </div>
+
+        <div class="mt-4 flex justify-between items-center">
+          <button class="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700">End Shopping Session</button>
+          <div class="text-green-600 text-sm font-medium">Ready for Checkout<br><span class="text-xs text-gray-500">Take your bill number to the cashier</span></div>
+        </div>
+      </div>
+    </div>
+  </main>
+  <script>
+    function updateQuantity(barcode, change) {
+      fetch('/api/update_quantity', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({barcode: barcode, change: change})
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          document.getElementById("qty-" + barcode).textContent = data.new_quantity;
+          location.reload(); // Refresh to update price/total
+        } else {
+          alert(data.message || "Error updating quantity");
+        }
+      });
+    }
+
+    function deleteProduct(barcode) {
+      if (!confirm("Are you sure you want to delete this product?")) return;
+
+      fetch('/api/delete_product', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({barcode: barcode})
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          location.reload();
+        } else {
+          alert(data.message || "Error deleting product");
+        }
+      });
+    }
+    //reload
+
+    const trolleyId = "{{ trolley_id }}";
+
+    function fetchTrolleyData() {
+      fetch(`/api/trolley_data/${trolleyId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (!data.success) return;
+
+          // Update product list
+          const container = document.getElementById("product-list");
+          container.innerHTML = "";
+
+          data.products.forEach(product => {
+            container.innerHTML += `
+              <div class="border rounded-lg p-4 mb-4 shadow-sm">
+                <div class="flex justify-between items-center">
+                  <div>
+                    <h4 class="text-md font-semibold text-[#2b2e4a]">${product.name}</h4>
+                    <p class="text-sm text-gray-500">Barcode: ${product.barcode} • Added: ${product.added}</p>
+                    <div class="flex space-x-2 mt-2 mb-2">
+                      <span class="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded">Organic</span>
+                      <span class="bg-pink-100 text-pink-700 text-xs px-2 py-1 rounded">Premium Quality</span>
+                    </div>
+                    <div class="flex items-center gap-2 mt-2">
+                      <button onclick="updateQuantity('${product.barcode}', -1)" class="bg-gray-200 px-2 rounded hover:bg-gray-300">-</button>
+                      <span id="qty-${product.barcode}" class="font-semibold">${product.quantity}</span>
+                      <button onclick="updateQuantity('${product.barcode}', 1)" class="bg-gray-200 px-2 rounded hover:bg-gray-300">+</button>
+                      <button onclick="deleteProduct('${product.barcode}')" class="ml-4 text-red-600 hover:text-red-800 text-sm">🗑 Delete</button>
+                    </div>
+                  </div>
+                  <div class="text-right">
+                    <p class="text-sm text-gray-500 line-through">₹${product.mrp}</p>
+                    <p class="text-lg font-bold text-[#3c3c74]">₹${product.price}</p>
+                    <p class="text-xs text-green-500">(-₹${product.discount})</p>
+                  </div>
+                </div>
+              </div>
+            `;
+          });
+
+          // Update totals
+          document.getElementById("total-mrp").textContent = `₹${data.total_mrp}`;
+          document.getElementById("total-discount").textContent = `-₹${data.total_discount}`;
+          document.getElementById("final-amount").textContent = `₹${data.final_amount}`;
+        });
+    }
+
+    setInterval(fetchTrolleyData, 5000); // every 5 sec
+
+    </script>
+
+</body>
+
+</html>

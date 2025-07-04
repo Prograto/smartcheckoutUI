@@ -2,4 +2,3 @@ Flask
 pymongo
 bson
 flask_cors
-json

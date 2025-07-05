@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Smart Trolley | QR Scan</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
@@ -39,39 +40,51 @@
       <p class="text-gray-500 text-sm mb-4">Point your camera at the QR code on your smart trolley</p>
 
       <!-- QR Reader -->
-      <div id="reader" class="border-2 border-dashed border-gray-300 rounded-xl p-2 mb-4"></div>
+      <div id="reader" class="w-full h-64 border-2 border-dashed border-gray-300 rounded-xl p-2 mb-4"></div>
       <p id="message" class="text-sm text-red-500 font-medium h-5"></p>
     </div>
   </main>
 
   <!-- Script -->
-  <script>
-    function onScanSuccess(decodedText) {
-      html5QrcodeScanner.clear().then(() => {
-        fetch("/api/check_trolley_id", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ trolleyid: decodedText.trim() })
-        })
-        .then(res => res.json())
-        .then(data => {
-          if (data.valid) {
-            window.location.href = `/trolley/${decodedText}`;
-          } else {
-            document.getElementById("message").innerText = "❌ Invalid Trolley ID!";
-          }
-        })
-        .catch(() => {
-          document.getElementById("message").innerText = "❌ Server error!";
-        });
+<script>
+  function onScanSuccess(decodedText) {
+    html5QrCode.stop().then(() => {
+      fetch("/api/check_trolley_id", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trolleyid: decodedText.trim() })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.valid) {
+          window.location.href = `/trolley/${decodedText.trim()}`;
+        } else {
+          document.getElementById("message").innerText = "❌ Invalid Trolley ID!";
+        }
+      })
+      .catch(() => {
+        document.getElementById("message").innerText = "❌ Server error!";
       });
-    }
-
-    const html5QrcodeScanner = new Html5QrcodeScanner("reader", {
-      fps: 10,
-      qrbox: 250
     });
-    html5QrcodeScanner.render(onScanSuccess);
-  </script>
+  }
+
+  const html5QrCode = new Html5Qrcode("reader");
+  Html5Qrcode.getCameras().then(devices => {
+    if (devices && devices.length) {
+      const rearCamera = devices.find(device => device.label.toLowerCase().includes("back")) || devices[0];
+
+      html5QrCode.start(
+        { deviceId: { exact: rearCamera.id } },
+        { fps: 10, qrbox: 250 },
+        onScanSuccess
+      ).catch(err => {
+        document.getElementById("message").innerText = "❌ Camera error: " + err;
+      });
+    } else {
+      document.getElementById("message").innerText = "❌ No camera found!";
+    }
+  });
+</script>
+
 </body>
 </html>

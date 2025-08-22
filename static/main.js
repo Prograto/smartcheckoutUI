@@ -21,3 +21,4 @@ function update(button, action) {
     location.reload(); // simple reload after update
   }).catch(console.error);
 }
+
